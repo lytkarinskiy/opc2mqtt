@@ -80,15 +80,18 @@ def connectToOPCServer(opcHostName, opcServerName, mode):
 def opccreatereadlist(opcConnection, mask):
     return opcConnection.list(mask, flat=True)
 
+def is_type(m_type, val):
+    try:
+        m_type(val)
+        return True
+    except ValueError:
+        return False
 
 def opcJsonPayload(opcConnection, opcReadList, spec):
     payload = ""
     if spec == "tekon_water":
         for name, value, quality, dtime in opcConnection.read(opcReadList):
             # Convert OpenOPC datetime format to ISO8601
-            #
-            # CONVERT TO UTC
-            #
             dtime = time.strftime('%Y-%m-%dZ%H:%M:%ST', time.strptime(dtime, "%m/%d/%y %H:%M:%S"))
             # Convert "quality" to true/false
             quality = True if quality == "Good" else False
@@ -101,6 +104,7 @@ def opcJsonPayload(opcConnection, opcReadList, spec):
     return payload
 
 
+
 opc_host, opc_server, mqtt_broker_host, mqtt_client_id = [line.strip() for line in open("settings", 'r').readlines()]
 # The loop for periodical read and publish
 updateRate = 5
@@ -109,7 +113,7 @@ topic = "odintcovo/water"
 while True:
     # Create connection to OPC server and read vars
     opcConnection = connectToOPCServer(opc_host, opc_server, "open")
-    opcReadList = opccreatereadlist(opcConnection, 'Random.*Int*')
+    opcReadList = opccreatereadlist(opcConnection, '*.Channel*')
     payload = opcJsonPayload(opcConnection, opcReadList, "tekon_water")
 
     msg = {'topic': topic, 'payload': payload, 'qos': 1}
