@@ -77,7 +77,7 @@ def connectToOPCServer(opcHostName, opcServerName, mode):
     return opc
 
 
-def opcCreateReadList(opcConnection, mask):
+def opccreatereadlist(opcConnection, mask):
     return opcConnection.list(mask, flat=True)
 
 
@@ -93,7 +93,7 @@ def opcJsonPayload(opcConnection, opcReadList, spec):
             # Convert "quality" to true/false
             quality = True if quality == "Good" else False
             # Use OrderedDict to save JSON keys order
-            dataJSON = OrderedDict([("_spec", "tekon_water"), ("value", int(value)), ("quality", quality)])
+            dataJSON = OrderedDict([("_spec", spec), ("value", int(value)), ("quality", quality)])
             fullJSON = OrderedDict([("meterDescription", name), ("recievedDate", dtime), ("data", dataJSON)])
             payload += json.dumps(fullJSON, indent=4)
     else:
@@ -109,7 +109,7 @@ topic = "odintcovo/water"
 while True:
     # Create connection to OPC server and read vars
     opcConnection = connectToOPCServer(opc_host, opc_server, "open")
-    opcReadList = opcCreateReadList(opcConnection, 'Random.*Int*')
+    opcReadList = opccreatereadlist(opcConnection, 'Random.*Int*')
     payload = opcJsonPayload(opcConnection, opcReadList, "tekon_water")
 
     msg = {'topic': topic, 'payload': payload, 'qos': 1}
