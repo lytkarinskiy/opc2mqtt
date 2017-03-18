@@ -33,7 +33,6 @@ def on_disconnect(client, userdata, rc):
     if rc != 0:
         print("on_disconnect: Unexpected disconnection")
 
-
 homedir = '/home/osboxes/Documents/certs/'
 opc_host, opc_server, hostname, client_id = [line.strip() for line in open(homedir + "settings").readlines()]
 
@@ -63,14 +62,17 @@ hostname=hostname
 port=8883
 client_id=client_id
 
-debug = False
+debug = True
 mqttc = mqtt.Client(client_id)
-if debug == True:
+if debug:
 	mqttc.on_connect = on_connect
 	mqttc.on_publish = on_publish
 	mqttc.on_disconnect = on_disconnect
-mqttc.tls_set(ca_certs= homedir + 'ca.crt', certfile= homedir + 'client_cert.pem', keyfile= homedir + 'client_key.pem', tls_version=ssl.PROTOCOL_TLSv1_2)
-mqttc.tls_insecure_set(True)     # prevents error - ssl.SSLError: Certificate subject does not match remote hostname.
+mqttc.tls_set(ca_certs = homedir + 'ca.crt', 
+	certfile = homedir + 'client_cert.pem', 
+	keyfile = homedir + 'client_key.pem', 
+	tls_version=ssl.PROTOCOL_TLSv1_2)
+mqttc.tls_insecure_set(True)     # prevents ssl.SSLError: Certificate subject does not match remote hostname.
 mqttc.connect(hostname, port)
 mqttc.loop_start()
 
@@ -79,6 +81,12 @@ updateRate = 3
 while True:
 	for name, value, quality, dtime in opc.read(readList):
 		# Convert OpenOPC datetime format to ISO8601
+		# 
+		# 
+		# CONVERT TO UTC
+		# 
+		# 
+		# 
 		dtime = time.strftime('%Y-%m-%dZ%H:%M:%ST', time.strptime(dtime, "%m/%d/%y %H:%M:%S"))
 		# Convert "quality" to true/false
 		quality = True if quality=="Good" else False
