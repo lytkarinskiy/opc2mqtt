@@ -81,10 +81,10 @@ def opc_connect_to_server(hostname, opc_server, mode="open"):
 def opc_create_read_list(opc_connection, mask):
     return opc_connection.list(mask, flat=True)
 
-def json_payload(opc_connection, opc_read_list, spec):
+def json_payload(connection, read_list, spec):
     payload = ""
     if spec == "tekon_water":
-        for name, value, quality, dtime in opc_connection.read(opc_read_list):
+        for name, value, quality, dtime in connection.read(read_list):
             if quality != "Good":
             	# Use and convert current datetime to UTC ISO8601
                 value = 0
