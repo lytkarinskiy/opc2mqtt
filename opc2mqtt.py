@@ -1,6 +1,7 @@
 import time
 import json
 import ssl
+import re
 import paho.mqtt.client as paho
 import paho.mqtt as mqtt
 import OpenOPC
@@ -59,12 +60,12 @@ def connectToOPCServer(opcHostName, opcServerName, mode):
         try:
             opc = OpenOPC.open_client(opcHostName)
         except:
-            print "Unknown host"
+            print "Unknown open_opc host"
     elif mode == "dcom":
         try:
             opc = OpenOPC.client(opcHostName)
         except:
-            print "Unknown host"
+            print "Unknown dcom host"
     else:
         print "Unknown connection mode"
 
@@ -80,25 +81,27 @@ def connectToOPCServer(opcHostName, opcServerName, mode):
 def opccreatereadlist(opcConnection, mask):
     return opcConnection.list(mask, flat=True)
 
-def is_type(m_type, val):
-    try:
-        m_type(val)
-        return True
-    except ValueError:
-        return False
-
 def opcJsonPayload(opcConnection, opcReadList, spec):
     payload = ""
     if spec == "tekon_water":
         for name, value, quality, dtime in opcConnection.read(opcReadList):
-            # Convert OpenOPC datetime format to ISO8601
-            dtime = time.strftime('%Y-%m-%dZ%H:%M:%ST', time.strptime(dtime, "%m/%d/%y %H:%M:%S"))
+            if quality != "Good":
+                value = 0
+                dtime = time.strftime('%Y-%m-%dZ%H:%M:%ST', time.gmtime())
+            else:
+                # Convert OpenOPC datetime format to UTC ISO8601
+                dtime = time.strptime(dtime, "%m/%d/%y %H:%M:%S")
+                dtime.hour -=3
+                dtime = time.strftime('%Y-%m-%dZ%H:%M:%ST', dtime)
             # Convert "quality" to true/false
             quality = True if quality == "Good" else False
+            # Replace russian in name
+            name = re.sub(r'USB.*- ', 'USB_Pult.KIR-', name, re.DOTALL)
             # Use OrderedDict to save JSON keys order
             dataJSON = OrderedDict([("_spec", spec), ("value", int(value)), ("quality", quality)])
             fullJSON = OrderedDict([("meterDescription", name), ("recievedDate", dtime), ("data", dataJSON)])
-            payload += json.dumps(fullJSON, indent=4)
+            payload += json.dumps(fullJSON, indent=4) + "\n"
+        print payload
     else:
         print "Unknown specification"
     return payload
