@@ -54,16 +54,16 @@ def on_disconnect(client, userdata, rc):
         print("on_disconnect: Unexpected disconnection")
 
 
-def connectToOPCServer(opcHostName, opcServerName, mode):
+def opc_connect_to_server(hostname, opc_server, mode="open"):
     # connect to remote OpenOPC gateway
     if mode == "open":
         try:
-            opc = OpenOPC.open_client(opcHostName)
+            opc = OpenOPC.open_client(hostname)
         except:
             print "Unknown open_opc host"
     elif mode == "dcom":
         try:
-            opc = OpenOPC.client(opcHostName)
+            opc = OpenOPC.client(hostname)
         except:
             print "Unknown dcom host"
     else:
@@ -71,20 +71,20 @@ def connectToOPCServer(opcHostName, opcServerName, mode):
 
     # Connect to the OPC server inside Gateway
     try:
-        opc.connect(opcServerName)
-        print "Connected to OpenOPC server " + opcServerName + " on host " + opcHostName
+        opc.connect(opc_server)
+        print "Connected to OpenOPC server " + opc_server + " on host " + hostname
     except:
         print "Unknown OPC Server"
     return opc
 
 
-def opccreatereadlist(opcConnection, mask):
-    return opcConnection.list(mask, flat=True)
+def opc_create_read_list(opc_connection, mask):
+    return opc_connection.list(mask, flat=True)
 
-def opcJsonPayload(opcConnection, opcReadList, spec):
+def json_payload(opc_connection, opc_read_list, spec):
     payload = ""
     if spec == "tekon_water":
-        for name, value, quality, dtime in opcConnection.read(opcReadList):
+        for name, value, quality, dtime in opc_connection.read(opc_read_list):
             if quality != "Good":
             	# Use and convert current datetime to UTC ISO8601
                 value = 0
@@ -120,9 +120,9 @@ topic = "odintcovo/water"
 
 while True:
     # Create connection to OPC server and read vars
-    opcConnection = connectToOPCServer(opc_host, opc_server, "open")
-    opcReadList = opccreatereadlist(opcConnection, '*.Channel*')
-    payload = opcJsonPayload(opcConnection, opcReadList, "tekon_water")
+    opc_connection = opc_connect_to_server(opc_host, opc_server)
+    opc_read_list = opc_create_read_list(opc_connection, '*.Channel*')
+    payload = json_payload(opc_connection, opc_read_list, "tekon_water")
 
     msg = {'topic': topic, 'payload': payload, 'qos': 1}
     mqttc = paho.Client(client_id=mqtt_client_id, userdata=[msg])
@@ -135,6 +135,6 @@ while True:
     mqttc.connect(mqtt_broker_host, port=8883, keepalive=10)
     mqttc.loop_forever()
 
-    opcConnection.close()
+    opc_connection.close()
     print "Connection to OpenOPC server " + opc_server + " on host " + opc_host + " is closed"
     time.sleep(updateRate)
