@@ -86,11 +86,13 @@ def opcJsonPayload(opcConnection, opcReadList, spec):
     if spec == "tekon_water":
         for name, value, quality, dtime in opcConnection.read(opcReadList):
             if quality != "Good":
+            	# Use and convert current datetime to UTC ISO8601
                 value = 0
                 dtime = time.strftime('%Y-%m-%dZ%H:%M:%ST', time.gmtime())
             else:
-                # Convert OpenOPC datetime format to UTC ISO8601
+                # Use and convert received datetime to UTC ISO8601
                 dtime = time.strptime(dtime, "%m/%d/%y %H:%M:%S")
+                # Shift hour to UTC
                 dtime.hour -=3
                 dtime = time.strftime('%Y-%m-%dZ%H:%M:%ST', dtime)
             # Convert "quality" to true/false
@@ -99,7 +101,8 @@ def opcJsonPayload(opcConnection, opcReadList, spec):
             name = re.sub(r'USB.*- ', 'USB_Pult.KIR-', name, re.DOTALL)
             # Use OrderedDict to save JSON keys order
             dataJSON = OrderedDict([("_spec", spec), ("value", int(value)), ("quality", quality)])
-            fullJSON = OrderedDict([("meterDescription", name), ("recievedDate", dtime), ("data", dataJSON)])
+            fullJSON = OrderedDict([("meterDescription", name), ("receivedDate", dtime), ("data", dataJSON)])
+            # Dump payload to JSON
             payload += json.dumps(fullJSON, indent=4) + "\n"
         print payload
     else:
@@ -109,7 +112,9 @@ def opcJsonPayload(opcConnection, opcReadList, spec):
 
 
 opc_host, opc_server, mqtt_broker_host, mqtt_client_id = [line.strip() for line in open("settings", 'r').readlines()]
-# The loop for periodical read and publish
+
+
+# Infinite loop to read and publish with updateRate priod
 updateRate = 5
 topic = "odintcovo/water"
 
