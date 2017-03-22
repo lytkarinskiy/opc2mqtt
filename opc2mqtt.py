@@ -1,3 +1,4 @@
+import time
 import datetime
 import json
 import ssl
@@ -54,21 +55,21 @@ def opc_connect(hostname, opc_server, mode="open"):
     if mode == "open":
         try:
             opc = OpenOPC.open_client(hostname)
-        except:
+        except ConnectionError:
             print "Unknown open_opc host"
     elif mode == "dcom":
         try:
             opc = OpenOPC.client(hostname)
-        except:
+        except ConnectionError:
             print "Unknown dcom host"
     else:
         print "Unknown connection mode"
 
-    # Connect to the OPC server inside Gateway
+    # Connect to the OPC server
     try:
         opc.connect(opc_server)
         print "Connected to OpenOPC server " + opc_server + " on host " + hostname
-    except:
+    except ConnectionError:
         print "Unknown OPC Server"
     return opc
 
@@ -80,7 +81,7 @@ def json_payload(connection, read_list, spec):
     if spec == "tekon_water":
         for name, value, quality, dtime in connection.read(read_list):
             if quality != "Good":
-            	# Use and convert current datetime to UTC ISO8601
+                # Use and convert current datetime to UTC ISO8601
                 value = 0
                 dtime = datetime.datetime.utcnow().strftime('%Y-%m-%dZ%H:%M:%ST')
             else:
@@ -108,23 +109,29 @@ updateRate = 5
 topic = "odintcovo/water"
 opc_host, opc_server, mqtt_broker_host, mqtt_client_id = [line.strip() for line in open("settings", 'r').readlines()]
 
-while True:
-    # Create connection to OPC server and read vars
-    opc_connection = opc_connect(opc_host, opc_server)
-    opc_read_list = opc_create_read_list(opc_connection, 'Random.*Int*')
-    payload = json_payload(opc_connection, opc_read_list, "tekon_water")
+def core_func():
+    while True:
+        # Create connection to OPC server and read vars
+        opc_connection = opc_connect(opc_host, opc_server)
+        opc_read_list = opc_create_read_list(opc_connection, '*.Channel*')
+        payload = json_payload(opc_connection, opc_read_list, "tekon_water")
 
-    msg = {'topic': topic, 'payload': payload, 'qos': 1}
-    mqttc = paho.Client(client_id=mqtt_client_id, userdata=[msg])
-    mqttc.on_connect = on_connect
-    mqttc.on_publish = on_publish
-    mqttc.on_disconnect = on_disconnect
-    mqttc.tls_set(ca_certs='ca.crt', certfile='client_cert.pem', keyfile='client_key.pem',
-                  tls_version=ssl.PROTOCOL_TLSv1_2)
-    mqttc.tls_insecure_set(True)  # prevents ssl.SSLError: Certificate subject does not match remote hostname.
-    mqttc.connect(mqtt_broker_host, port=8883, keepalive=10)
-    mqttc.loop_forever()
+        msg = {'topic': topic, 'payload': payload, 'qos': 1}
+        mqttc = paho.Client(client_id=mqtt_client_id, userdata=[msg])
+        mqttc.on_connect = on_connect
+        mqttc.on_publish = on_publish
+        mqttc.on_disconnect = on_disconnect
+        mqttc.tls_set(ca_certs='ca.crt', certfile='client_cert.pem', keyfile='client_key.pem',
+                      tls_version=ssl.PROTOCOL_TLSv1_2)
+        mqttc.tls_insecure_set(True)  # prevents ssl.SSLError: Certificate subject does not match remote hostname.
+        mqttc.connect(mqtt_broker_host, port=8883, keepalive=10)
+        mqttc.loop_forever()
 
-    opc_connection.close()
-    print "Connection to OpenOPC server " + opc_server + " on host " + opc_host + " is closed"
-    time.sleep(updateRate)
+        opc_connection.close()
+        # print "Connection to OpenOPC server " + opc_server + " on host " + opc_host + " is closed"
+        time.sleep(updateRate)
+
+core_func()
+
+if __name__ == "main":
+    core_func()
